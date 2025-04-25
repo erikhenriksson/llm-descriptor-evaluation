@@ -33,7 +33,7 @@ with open(edu_ids_file, "r") as f:
             data = json.loads(line)
             # Try to get the ID - assuming it might be directly the ID or in an 'id' field
             if isinstance(data, dict):
-                doc_id = data.get("id")
+                doc_id = data.get("doc_id")
                 if doc_id:
                     edu_ids.add(doc_id)
             elif isinstance(data, str):
@@ -60,7 +60,7 @@ print("Loading documents and descriptors...")
 with open(descriptors_file, "r") as f:
     for line in tqdm(f, total=total_lines, desc="Processing documents"):
         data = json.loads(line)
-        doc_id = data.get("id")
+        doc_id = data.get("doc_id")
 
         # Extract descriptors from the 'general' key
         descriptors = data.get("general", [])
@@ -81,7 +81,7 @@ with open(descriptors_file, "r") as f:
 
             docs_data.append(
                 {
-                    "id": doc_id,
+                    "doc_id": doc_id,
                     "descriptors": string_descriptors,
                     "is_educational": doc_id in edu_ids,
                 }
@@ -283,7 +283,7 @@ for threshold in thresholds:
 
             # Write to output file
             output_data = {
-                "id": doc["id"],
+                "doc_id": doc["doc_id"],
                 output_key: clustered_descriptors,
                 "is_educational": doc["is_educational"],
             }
