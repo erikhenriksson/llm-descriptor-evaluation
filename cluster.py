@@ -251,7 +251,7 @@ def cluster_descriptors(descriptors_list, embeddings, threshold):
 
 
 # Test different thresholds
-thresholds = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+thresholds = [0.5, 0.6, 0.7, 0.8, 0.9]
 
 for threshold in thresholds:
     print(f"\nClustering with threshold {threshold}...")
