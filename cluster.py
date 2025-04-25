@@ -102,7 +102,7 @@ model = AutoModel.from_pretrained(model_dir, trust_remote_code=True)
 tokenizer = AutoTokenizer.from_pretrained(model_dir, trust_remote_code=True)
 
 # Move model to GPU if available
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda")
 print(device)
 model = model.to(device)
 model.eval()
