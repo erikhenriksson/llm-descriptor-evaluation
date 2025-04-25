@@ -1,5 +1,7 @@
 import json
 import os
+
+os.environ["HF_HOME"] = ".hf_cache"
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -133,7 +135,7 @@ if "compute_embeddings" in locals() and compute_embeddings:
     embeddings = []
 
     # Process in batches to avoid memory issues
-    batch_size = 32
+    batch_size = 80
     total_batches = (len(descriptors_list) + batch_size - 1) // batch_size
 
     for i in tqdm(
