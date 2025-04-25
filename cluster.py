@@ -10,9 +10,7 @@ from collections import defaultdict
 
 # Path to input files
 data_dir = "data"
-descriptors_file = os.path.join(
-    data_dir, "final_zero_vocab/descriptors_final_zero_vocab.jsonl"
-)
+descriptors_file = os.path.join(data_dir, "data/descriptors_final_zero_vocab.jsonl")
 edu_ids_file = os.path.join(data_dir, "edu_ids.jsonl")
 output_file_base = os.path.join(data_dir, "clustered_descriptors")
 
@@ -133,7 +131,7 @@ if "compute_embeddings" in locals() and compute_embeddings:
     embeddings = []
 
     # Process in batches to avoid memory issues
-    batch_size = 64
+    batch_size = 32
     total_batches = (len(descriptors_list) + batch_size - 1) // batch_size
 
     for i in tqdm(
@@ -189,19 +187,60 @@ def cluster_descriptors(descriptors_list, embeddings, threshold):
     # Create mapping from original descriptor to cluster
     descriptor_to_cluster = {}
     clusters = defaultdict(list)
+    cluster_indices = defaultdict(list)
 
     for i, (descriptor, label) in enumerate(zip(descriptors_list, cluster_labels)):
         descriptor_to_cluster[descriptor] = label
         clusters[label].append(descriptor)
+        cluster_indices[label].append(i)
 
-    # For each cluster, choose a representative (can be modified to use different strategies)
+    # For each cluster, choose a representative based on centrality
     cluster_representatives = {}
+
     for cluster_id, descriptors in tqdm(
         clusters.items(), desc="Selecting cluster representatives"
     ):
-        # Using the shortest descriptor as representative
-        representative = min(descriptors, key=len)
-        cluster_representatives[cluster_id] = representative
+        if len(descriptors) == 1:
+            # If only one descriptor in cluster, use it as representative
+            cluster_representatives[cluster_id] = descriptors[0]
+        else:
+            # Get indices and embeddings for this cluster
+            indices = cluster_indices[cluster_id]
+            cluster_embeddings = embeddings[indices]
+
+            # Compute centroid of the cluster
+            centroid = np.mean(cluster_embeddings, axis=0)
+
+            # Find descriptor closest to centroid (most central)
+            distances = []
+            for i, idx in enumerate(indices):
+                # Compute cosine similarity (1 - cosine distance)
+                similarity = np.dot(centroid, embeddings[idx]) / (
+                    np.linalg.norm(centroid) * np.linalg.norm(embeddings[idx])
+                )
+                distances.append((1 - similarity, i))
+
+            # Get the most central descriptor (lowest distance to centroid)
+            most_central_idx = indices[min(distances, key=lambda x: x[0])[1]]
+            representative = descriptors_list[most_central_idx]
+
+            # If the most central descriptor is very long (>30 chars),
+            # also consider shorter descriptors that are still close to the centroid
+            if len(representative) > 30:
+                # Sort by distance to centroid
+                sorted_distances = sorted(distances, key=lambda x: x[0])
+
+                # Look for a shorter descriptor among the top 3 most central (if cluster has at least 3)
+                for dist, idx_in_cluster in sorted_distances[
+                    : min(3, len(sorted_distances))
+                ]:
+                    candidate = descriptors_list[indices[idx_in_cluster]]
+                    # If this descriptor is at least 30% shorter and still close to centroid
+                    if len(candidate) < 0.7 * len(representative):
+                        representative = candidate
+                        break
+
+            cluster_representatives[cluster_id] = representative
 
     return descriptor_to_cluster, cluster_representatives
 
