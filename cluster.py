@@ -1,7 +1,9 @@
 import json
 import os
 
+# Set Hugging Face cache directory
 os.environ["HF_HOME"] = ".hf_cache"
+
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -10,11 +12,10 @@ from sklearn.preprocessing import normalize
 from transformers import AutoModel, AutoTokenizer
 from collections import defaultdict
 
+
 # Path to input files
 data_dir = "data"
-descriptors_file = os.path.join(
-    data_dir, "final_zero_vocab/descriptors_final_zero_vocab.jsonl"
-)
+descriptors_file = os.path.join(data_dir, "descriptors_final_zero_vocab.jsonl")
 edu_ids_file = os.path.join(data_dir, "edu_ids.jsonl")
 output_file_base = os.path.join(data_dir, "clustered_descriptors")
 
@@ -33,7 +34,7 @@ with open(edu_ids_file, "r") as f:
             data = json.loads(line)
             # Try to get the ID - assuming it might be directly the ID or in an 'id' field
             if isinstance(data, dict):
-                doc_id = data.get("doc_id")
+                doc_id = data.get("id")
                 if doc_id:
                     edu_ids.add(doc_id)
             elif isinstance(data, str):
@@ -50,7 +51,7 @@ print(f"Loaded {len(edu_ids)} educational document IDs")
 
 # Load descriptors and documents
 docs_data = []
-descriptors_set = set()
+descriptors_counter = defaultdict(int)
 
 # Count total lines in the file for tqdm
 total_lines = sum(1 for _ in open(descriptors_file, "r"))
@@ -60,7 +61,7 @@ print("Loading documents and descriptors...")
 with open(descriptors_file, "r") as f:
     for line in tqdm(f, total=total_lines, desc="Processing documents"):
         data = json.loads(line)
-        doc_id = data.get("doc_id")
+        doc_id = data.get("id")
 
         # Extract descriptors from the 'general' key
         descriptors = data.get("general", [])
@@ -77,15 +78,56 @@ with open(descriptors_file, "r") as f:
 
             # Add only hashable (string) descriptors to the set
             string_descriptors = [str(d) for d in flat_descriptors if d is not None]
-            descriptors_set.update(string_descriptors)
+
+            # Count occurrences of each descriptor
+            for descriptor in string_descriptors:
+                descriptors_counter[descriptor] += 1
 
             docs_data.append(
                 {
-                    "doc_id": doc_id,
+                    "id": doc_id,
                     "descriptors": string_descriptors,
                     "is_educational": doc_id in edu_ids,
                 }
             )
+
+# Print descriptor statistics
+total_descriptors = sum(descriptors_counter.values())
+unique_descriptors = len(descriptors_counter)
+print(
+    f"Found {total_descriptors} total descriptors with {unique_descriptors} unique values"
+)
+
+# Print most common descriptors
+print("\nTop 10 most common descriptors:")
+for descriptor, count in sorted(
+    descriptors_counter.items(), key=lambda x: x[1], reverse=True
+)[:10]:
+    print(
+        f"  - '{descriptor}': {count} occurrences ({count / total_lines:.1%} of documents)"
+    )
+
+# Option to filter descriptors by frequency
+min_frequency = 5  # Can be adjusted based on your specific needs
+max_descriptors = 10000  # Limit to prevent OOM errors
+print(f"\nFiltering descriptors to those appearing at least {min_frequency} times...")
+
+filtered_descriptors = {
+    desc for desc, count in descriptors_counter.items() if count >= min_frequency
+}
+if len(filtered_descriptors) > max_descriptors:
+    print(
+        f"WARNING: Still too many descriptors ({len(filtered_descriptors)}). Taking top {max_descriptors} by frequency."
+    )
+    filtered_descriptors = {
+        desc
+        for desc, count in sorted(
+            descriptors_counter.items(), key=lambda x: x[1], reverse=True
+        )[:max_descriptors]
+    }
+
+descriptors_set = filtered_descriptors
+print(f"After filtering: {len(descriptors_set)} unique descriptors to be clustered")
 
 print(
     f"Loaded {len(docs_data)} documents with {len(descriptors_set)} unique descriptors"
@@ -98,13 +140,21 @@ model_dir = "Marqo/dunzhang-stella_en_400M_v5"
 import warnings
 
 warnings.filterwarnings("ignore", category=FutureWarning)
+
+# Check CUDA availability and print clear status
+if torch.cuda.is_available():
+    print(f"CUDA is available! Using GPU: {torch.cuda.get_device_name(0)}")
+    device = torch.device("cuda")
+else:
+    print("CUDA is not available. Using CPU instead.")
+    device = torch.device("cpu")
+
 model = AutoModel.from_pretrained(model_dir, trust_remote_code=True)
 tokenizer = AutoTokenizer.from_pretrained(model_dir, trust_remote_code=True)
 
-# Move model to GPU if available
-device = torch.device("cuda")
-print(device)
+# Move model to GPU explicitly
 model = model.to(device)
+print(f"Model is on device: {next(model.parameters()).device}")
 model.eval()
 
 # Path to save/load embeddings
@@ -136,7 +186,7 @@ if "compute_embeddings" in locals() and compute_embeddings:
     embeddings = []
 
     # Process in batches to avoid memory issues
-    batch_size = 80
+    batch_size = 32
     total_batches = (len(descriptors_list) + batch_size - 1) // batch_size
 
     for i in tqdm(
@@ -153,7 +203,14 @@ if "compute_embeddings" in locals() and compute_embeddings:
                 max_length=512,
                 return_tensors="pt",
             )
+            # Explicitly move input data to device
             input_data = {k: v.to(device) for k, v in input_data.items()}
+
+            # Double-check input is on correct device
+            if device.type == "cuda" and not input_data["input_ids"].is_cuda:
+                print("WARNING: Input was not moved to CUDA!")
+                input_data = {k: v.to(device) for k, v in input_data.items()}
+
             attention_mask = input_data["attention_mask"]
             last_hidden_state = model(**input_data)[0]
             last_hidden = last_hidden_state.masked_fill(
@@ -251,7 +308,7 @@ def cluster_descriptors(descriptors_list, embeddings, threshold):
 
 
 # Test different thresholds
-thresholds = [0.5, 0.6, 0.7, 0.8, 0.9]
+thresholds = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
 for threshold in thresholds:
     print(f"\nClustering with threshold {threshold}...")
@@ -283,7 +340,7 @@ for threshold in thresholds:
 
             # Write to output file
             output_data = {
-                "doc_id": doc["doc_id"],
+                "id": doc["id"],
                 output_key: clustered_descriptors,
                 "is_educational": doc["is_educational"],
             }
