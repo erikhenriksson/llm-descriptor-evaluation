@@ -15,7 +15,9 @@ from collections import defaultdict
 
 # Path to input files
 data_dir = "data"
-descriptors_file = os.path.join(data_dir, "descriptors_final_zero_vocab.jsonl")
+descriptors_file = os.path.join(
+    data_dir, "final_zero_vocab/descriptors_final_zero_vocab.jsonl"
+)
 edu_ids_file = os.path.join(data_dir, "edu_ids.jsonl")
 output_file_base = os.path.join(data_dir, "clustered_descriptors")
 
