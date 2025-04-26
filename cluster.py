@@ -78,8 +78,10 @@ with open(descriptors_file, "r") as f:
                 else:
                     flat_descriptors.append(desc)
 
-            # Add only hashable (string) descriptors to the set
-            string_descriptors = [str(d) for d in flat_descriptors if d is not None]
+            # Add only hashable (string) descriptors to the set, convert to lowercase
+            string_descriptors = [
+                str(d).lower().strip() for d in flat_descriptors if d is not None
+            ]
 
             # Count occurrences of each descriptor
             for descriptor in string_descriptors:
