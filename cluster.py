@@ -113,7 +113,7 @@ for descriptor, count in sorted(
 
 # Option to filter descriptors by frequency
 min_frequency = 5  # Can be adjusted based on your specific needs
-max_descriptors = 10000  # Limit to prevent OOM errors
+max_descriptors = 50000  # Limit to prevent OOM errors
 print(f"\nFiltering descriptors to those appearing at least {min_frequency} times...")
 
 filtered_descriptors = {
