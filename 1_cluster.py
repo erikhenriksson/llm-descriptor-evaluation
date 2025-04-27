@@ -311,8 +311,25 @@ def cluster_descriptors(descriptors_list, embeddings, threshold):
     return descriptor_to_cluster, cluster_representatives
 
 
+# Write base case without clustering
+print("\nSaving base case (no clustering)...")
+base_output_file = f"{output_file_base}_base.jsonl"
+print(f"Writing original descriptors to {base_output_file}...")
+with open(base_output_file, "w") as f:
+    for doc in tqdm(docs_data, desc="Processing documents (base case)"):
+        # Use original descriptors directly without clustering
+        output_data = {
+            "doc_id": doc["doc_id"],
+            "general_base": doc["descriptors"],  # Use direct descriptors
+            "is_educational": doc["is_educational"],
+        }
+        f.write(json.dumps(output_data) + "\n")
+
+print(f"Base case: Saved {len(docs_data)} documents with original descriptors")
+
+
 # Test different thresholds
-thresholds = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+thresholds = [0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95]
 
 for threshold in thresholds:
     print(f"\nClustering with threshold {threshold}...")
