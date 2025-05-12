@@ -24,8 +24,16 @@ vector_dim = 1024
 model = AutoModel.from_pretrained(model_dir, trust_remote_code=True)
 # Move to GPU after loading, without using deprecated device argument
 if torch.cuda.is_available():
-    model = model.cuda()
-model.eval()
+    model = model = (
+        AutoModel.from_pretrained(
+            model_dir,
+            trust_remote_code=True,
+            use_memory_efficient_attention=False,
+            unpad_inputs=False,
+        )
+        .cuda()
+        .eval()
+    )
 tokenizer = AutoTokenizer.from_pretrained(model_dir, trust_remote_code=True)
 
 # Create vector linear layer
