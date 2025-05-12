@@ -1,15 +1,15 @@
 import gc
 import json
 import os
+import warnings
 
 import torch
 import tqdm
 from sklearn.preprocessing import normalize
 from transformers import AutoModel, AutoTokenizer
 
-# Set GPU device if available
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device: {device}")
+# Ignore the specific FutureWarning about device argument
+warnings.filterwarnings("ignore", message="The `device` argument is deprecated")
 
 # Paths
 input_file = "data/raw/descriptors_with_explainers.jsonl"
@@ -21,16 +21,11 @@ os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
 # Load model
 vector_dim = 1024
-model = (
-    AutoModel.from_pretrained(
-        model_dir,
-        trust_remote_code=True,
-        use_memory_efficient_attention=False,
-        unpad_inputs=False,
-    )
-    .cuda()
-    .eval()
-)
+model = AutoModel.from_pretrained(model_dir, trust_remote_code=True)
+# Move to GPU after loading, without using deprecated device argument
+if torch.cuda.is_available():
+    model = model.cuda()
+model.eval()
 tokenizer = AutoTokenizer.from_pretrained(model_dir, trust_remote_code=True)
 
 # Create vector linear layer
@@ -64,8 +59,9 @@ except Exception as e:
     print(f"Error loading vector linear layer: {e}")
     print("Using default initialization")
 
-# Move vector linear to device
-vector_linear = vector_linear.to(device)
+# Move vector linear to GPU if available, without using deprecated device argument
+if torch.cuda.is_available():
+    vector_linear = vector_linear.cuda()
 
 
 # Function to embed text
@@ -78,7 +74,10 @@ def embed_text(texts):
             max_length=512,
             return_tensors="pt",
         )
-        input_data = {k: v.to(device) for k, v in input_data.items()}
+        # Move to GPU if available
+        if torch.cuda.is_available():
+            input_data = {k: v.cuda() for k, v in input_data.items()}
+
         attention_mask = input_data["attention_mask"]
         last_hidden_state = model(**input_data)[0]
         last_hidden = last_hidden_state.masked_fill(
@@ -119,14 +118,12 @@ with open(input_file, "r") as in_f:
             if best_index < len(general_lists) and general_lists[best_index]:
                 best_descriptors = general_lists[best_index]
 
-                # Process each descriptor (lowercase and strip)
-                for descriptor_with_explanation in best_descriptors:
-                    # Extract just the descriptor part (before the colon)
-                    descriptor_parts = descriptor_with_explanation.split(":", 1)
-                    if len(descriptor_parts) > 0:
-                        descriptor = descriptor_parts[0].lower().strip()
-                        if descriptor:
-                            unique_descriptors.add(descriptor)
+                # Process each descriptor (lowercase and strip, but keep the full text)
+                for descriptor in best_descriptors:
+                    # Process the descriptor (lowercase and strip)
+                    processed_descriptor = descriptor.lower().strip()
+                    if processed_descriptor:
+                        unique_descriptors.add(processed_descriptor)
         except Exception as e:
             print(f"Error processing line {line_idx}: {e}")
             continue
@@ -139,8 +136,11 @@ with open(input_file, "r") as in_f:
 
 print(f"Found {len(unique_descriptors)} unique descriptors from {total_docs} documents")
 
-# Convert set to list for batch processing
-unique_descriptors_list = list(unique_descriptors)
+# Convert set to list and sort alphabetically
+unique_descriptors_list = sorted(list(unique_descriptors))
+print(
+    f"Sorting completed. Embedding {len(unique_descriptors_list)} unique descriptors..."
+)
 
 # Now process in batches and write to output file
 print("Embedding unique descriptors and writing to output file...")
