@@ -21,8 +21,16 @@ os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
 # Load model
 vector_dim = 1024
-model = AutoModel.from_pretrained(model_dir, trust_remote_code=True).to(device)
-model.eval()
+model = (
+    AutoModel.from_pretrained(
+        model_dir,
+        trust_remote_code=True,
+        use_memory_efficient_attention=False,
+        unpad_inputs=False,
+    )
+    .cuda()
+    .eval()
+)
 tokenizer = AutoTokenizer.from_pretrained(model_dir, trust_remote_code=True)
 
 # Create vector linear layer
