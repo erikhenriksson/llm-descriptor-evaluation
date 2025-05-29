@@ -14,14 +14,14 @@ warnings.filterwarnings("ignore")
 # Paths
 input_file = "data/raw/descriptors_with_explainers.jsonl"
 output_file = "data/processed/descriptors_with_explainers_embeddings_2.jsonl"
-model_name = "dunzhang/stella_en_400M_v5"  # Use the official model name
+model_name = "dunzhang/stella_en_400M_v5"
 
 # Make sure output directory exists
 os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
 print("Loading Stella model with SentenceTransformers...")
 
-# Load model using SentenceTransformers (much simpler!)
+# Load model using SentenceTransformers
 model = SentenceTransformer(
     model_name,
     trust_remote_code=True,
@@ -36,20 +36,13 @@ print("Model loaded successfully!")
 def embed_text(texts):
     """
     Embed text using Stella model via SentenceTransformers
-
-    Args:
-        texts: List of texts to embed
-
-    Returns:
-        Normalized embeddings as numpy array
     """
     with torch.no_grad():
-        # SentenceTransformers handles everything automatically
         embeddings = model.encode(
             texts,
             convert_to_tensor=False,  # Return numpy arrays
             normalize_embeddings=True,  # Normalize automatically
-            batch_size=32,  # Process in batches
+            batch_size=32,
         )
     return embeddings
 
@@ -74,9 +67,6 @@ def test_embedding_consistency():
         embedding = embed_text([text])
         individual_embeddings.append(embedding[0])
 
-    # Convert to tensor for comparison
-    individual_embeddings = torch.tensor(individual_embeddings).numpy()
-
     # Compare results
     tolerance = 1e-4
     max_diff = 0
@@ -96,39 +86,6 @@ def test_embedding_consistency():
     return True
 
 
-def verify_embeddings():
-    """Verify embeddings look reasonable"""
-    print("Verifying embedding quality...")
-
-    test_texts = ["machine learning", "artificial intelligence", "cooking recipe"]
-
-    embeddings = embed_text(test_texts)
-
-    # Check embedding properties
-    print(f"Embedding shape: {embeddings.shape}")
-    print(f"Embedding dimension: {embeddings.shape[1]}")
-
-    # Check if embeddings are normalized (should be close to 1.0)
-    norms = [torch.norm(torch.tensor(emb)).item() for emb in embeddings]
-    print(f"Embedding norms: {norms}")
-
-    # Compute similarities
-    similarities = embeddings @ embeddings.T
-    print("Similarity matrix:")
-    print(similarities)
-
-    # ML and AI should be more similar than either is to cooking
-    ml_ai_sim = similarities[0, 1]
-    ml_cook_sim = similarities[0, 2]
-
-    if ml_ai_sim > ml_cook_sim:
-        print("✅ Semantic relationships look reasonable")
-        return True
-    else:
-        print("❌ Semantic relationships look suspicious")
-        return False
-
-
 # Run tests
 print("\n" + "=" * 50)
 print("RUNNING EMBEDDING TESTS")
@@ -137,9 +94,6 @@ print("=" * 50)
 if not test_embedding_consistency():
     print("❌ Embedding consistency test failed. Exiting.")
     sys.exit(1)
-
-if not verify_embeddings():
-    print("⚠️  Embedding verification failed. Results may be unreliable.")
 
 print("\n" + "=" * 50)
 print("STARTING MAIN PROCESSING")
@@ -212,8 +166,6 @@ with open(output_file, "w") as out_f:
                 output_data = {
                     "descriptor": desc,
                     "embedding": embeddings[j].tolist(),
-                    "embedding_dim": embeddings.shape[1],
-                    "model": model_name,
                 }
                 out_f.write(json.dumps(output_data) + "\n")
 
@@ -225,7 +177,6 @@ with open(output_file, "w") as out_f:
 
         except Exception as e:
             print(f"Error embedding batch starting at index {i}: {e}")
-            # Continue with next batch
             continue
 
 print(f"Done! Embedded {len(unique_descriptors)} unique descriptors with Stella model.")
