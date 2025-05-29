@@ -26,6 +26,7 @@ model = SentenceTransformer(
     model_name,
     trust_remote_code=True,
     device="cuda" if torch.cuda.is_available() else "cpu",
+    config_kwargs={"use_memory_efficient_attention": False, "unpad_inputs": False},
 )
 model.eval()
 
