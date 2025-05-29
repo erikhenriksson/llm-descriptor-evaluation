@@ -14,7 +14,7 @@ warnings.filterwarnings("ignore", message="The `device` argument is deprecated")
 
 # Paths
 input_file = "data/raw/descriptors_with_explainers.jsonl"
-output_file = "data/processed/descriptors_with_explainers_embeddings.jsonl"
+output_file = "data/processed/descriptors_with_explainers_embeddings_2.jsonl"
 model_dir = "NovaSearch/stella_en_400M_v5"
 
 # Make sure output directory exists
