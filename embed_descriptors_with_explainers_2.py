@@ -13,7 +13,7 @@ warnings.filterwarnings("ignore")
 
 # Paths
 input_file = "data/raw/descriptors_with_explainers.jsonl"
-output_file = "data/processed/descriptors_with_explainers_embeddings_2.jsonl"
+output_file = "data/processed/descriptors_with_explainers_embeddings_3.jsonl"
 model_name = "dunzhang/stella_en_400M_v5"
 
 # Make sure output directory exists
@@ -40,8 +40,8 @@ def embed_text(texts):
     with torch.no_grad():
         embeddings = model.encode(
             texts,
-            convert_to_tensor=False,  # Return numpy arrays
-            normalize_embeddings=True,  # Normalize automatically
+            # convert_to_tensor=False,  # Return numpy arrays
+            # normalize_embeddings=True,  # Normalize automatically
             batch_size=32,
         )
     return embeddings
@@ -54,8 +54,8 @@ def test_embedding_consistency():
     # Test inputs
     test_texts = [
         "machine learning algorithm",
-        "natural language processing",
-        "computer vision model",
+        "natural language processing model",
+        "computer vision model model model model model model model model model model v v v model v v model model",
     ]
 
     # Method 1: Batch embedding
