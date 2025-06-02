@@ -55,7 +55,7 @@ def test_embedding_consistency():
     test_texts = [
         "machine learning algorithm",
         "natural language processing model",
-        "computer vision model model model model model model model model model model v v v model v v model model",
+        "computer vision model model model model model model model model model model v v v model v v model model model v v v model v v model modelmodel v v v model v v model modelmodel v v v model v v model modelmodel v v v model v v model modelmodel v v v model v v model modelmodel v v v model v v model modelmodel v v v model v v model modelmodel v v v model v v model modelmodel v v v model v v model modelmodel v v v model v v model modelmodel v v v model v v model model",
     ]
 
     # Method 1: Batch embedding
